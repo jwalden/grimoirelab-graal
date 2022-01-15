@@ -23,6 +23,7 @@
 #
 
 import subprocess
+import pandas as pd
 from pathlib import Path
 
 from graal.graal import (GraalError,
@@ -47,14 +48,14 @@ class QMCalc(Analyzer):
             with open(QMCalc.metrics_names_path) as f:
                 name_string = f.read().rstrip()
         except:
-            raise GraalError(cause="Error on reading cqmetrics names from %" % metrics_names_path)
+            raise GraalError(cause="Error on reading cqmetrics metric names from %" % metrics_names_path)
             
         self.metrics_names = name_string.split("\t")
 
     def __is_metric_int(self, metric):
         metric[0] == 'n' or metric.endswith("_length_min") or metric.endswith("_length_max") or metric.endswith("_nesting_min") or metric.endswith("_nesting_max")
 
-    def __analyze_file(self, message):
+    def __analyze_file(self, message, file_path):
         """Convert tab-separated metrics values from qmcalc into a dictionary
 
         :param message: message from standard output after execution of qmcalc
@@ -70,10 +71,12 @@ class QMCalc(Analyzer):
             else:
                 results[metric] = float(results[metric])
 
+        results['path'] = file_path
+        results['ext'] = GraalRepository.extension(file_path)
+
         return results
 
-    def __analyze_repository(self, message):
-        # FIXME: not implemented yet
+    def __analyze_repository(self, message, file_paths):
         """Add information LOC, total files, blank and commented lines using CLOC for the entire repository
 
         :param message: message from standard output after execution of qmcalc
@@ -81,35 +84,69 @@ class QMCalc(Analyzer):
         :returns result: dict of the results of the analysis over a repository
         """
 
-        results = {}
-        flag = False
-
+        # Construct data frame with metrics as columns, files as rows
+        results = []
+        i = 0
         for line in message.strip().split("\n"):
-            if flag:
-                if line.lower().startswith("sum"):
-                    break
-                elif not line.startswith("-----"):
-                    digested_split = line.split()
-                    langauge, files_info = digested_split[:-4], digested_split[-4:]
-                    language = " ".join(langauge)
-                    total_files, blank_lines, commented_lines, loc = map(int, files_info)
-                    language_result = {
-                        "total_files": total_files,
-                        "blanks": blank_lines,
-                        "comments": commented_lines,
-                        "loc": loc
-                    }
-                    results[language] = language_result
+            print(file_paths[i])
+            value_strings = line.rstrip().split("\t")
+            file_results = dict(zip(self.metrics_names, value_strings))
+            for metric in file_results:
+                if len(file_results[metric]) == 0:
+                    file_results[metric] = '0'
+            i = i + 1
 
-            if line.lower().startswith("language"):
-                flag = True
+        metrics_df = pd.DataFrame(data = results)
+        # metrics_df = metrics_df.convert_dtypes()
+        for col in metrics_df.columns:
+            if self.__is_metric_int(col):
+                metrics_df[col] = pd.to_numeric(metrics_df[col], errors='coerce').astype('Int64') 
+            else:
+                metrics_df[col] = pd.to_numeric(metrics_df[col], errors='coerce')
+
+        print(metrics_df.dtypes)
+        print('exit here')
+        exit(1)
+        metrics_df.to_csv('metrics.csv', index=False)
+        nfiles = len(metrics_df)
+
+        # Groups of columns that need to be summarized in non-sum() ways
+        mincols = [col for col in metrics_df.columns if col.endswith('min')]
+        maxcols = [col for col in metrics_df.columns if col.endswith('max')]
+        meancols = [col for col in metrics_df.columns if col.endswith('mean')]
+        sdcols = [col for col in metrics_df.columns if col.endswith('sd')]
+        mediancols = [col for col in metrics_df.columns if col.endswith('median')]
+
+        # Summarize each column based on metric type, sum() by default
+        sums = [ nfiles ]
+        for col in metrics_df.columns:
+            print(col)
+            print(col.dtype)
+            if col in mincols:
+                res = metrics_df[col].min()
+            elif col in maxcols:
+                res = metrics_df[col].max()
+            elif col in meancols:
+                res = metrics_df[col].mean()
+            elif col in mediancols:
+                res = metrics_df[col].median()
+            elif col in sdcols:
+                mean_col = col.replace('sd', 'mean')
+                res = metrics_df[mean_col].std()
+            else:
+                res = metrics_df[col].sum()
+            sums.append(res)
+
+        # Build results dictionary with extra 'nfiles' metric
+        metrics_names = [ 'nfiles' ] + self.metrics_names
+        results = dict(zip(metrics_names, sums))
 
         return results
 
     def analyze(self, **kwargs):
         """Add information using qmcalc
 
-        :param file_path: file path
+        :param file_path: path of a single C source or header file to analyze
         :param repository_level: set to True if analysis has to be performed on a repository
 
         :returns result: dict of the results of the analysis
@@ -117,10 +154,15 @@ class QMCalc(Analyzer):
 
         file_path = kwargs['file_path']
         repository_level = kwargs.get('repository_level', False)
-        # FIXME: we currently only handle the single file case
+
+        if repository_level:
+            file_paths = list(Path(file_path).glob('**/*.[ch]'))
+        else:
+            file_paths = [file_path]
 
         try:
-            qmcalc_command = ['qmcalc', file_path]
+            qmcalc_command = ['qmcalc'] + file_paths
+            # print(qmcalc_command) #FIXME: debug print
             message = subprocess.check_output(qmcalc_command).decode("utf-8")
         except subprocess.CalledProcessError as e:
             raise GraalError(cause="QMCalc failed at %s, %s" % (file_path, e.output.decode("utf-8")))
@@ -128,10 +170,10 @@ class QMCalc(Analyzer):
             subprocess._cleanup()
 
         if repository_level:
-            results = self.__analyze_repository(message)
+            results = self.__analyze_repository(message, file_paths)
         else:
-            results = self.__analyze_file(message)
-            results['ext'] = GraalRepository.extension(file_path)
+            results = self.__analyze_file(message, file_path)
 
         print(results) # FIXME: debug print
+        exit(1)
         return results

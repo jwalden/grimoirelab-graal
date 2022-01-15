@@ -28,6 +28,7 @@ import unittest.mock
 
 from base_analyzer import (TestCaseAnalyzer,
                            ANALYZER_TEST_C_FILE)
+from base_repo import TestCaseRepo
 
 from graal.backends.core.analyzers.qmcalc import QMCalc
 from graal.graal import GraalError
@@ -87,16 +88,21 @@ class TestQMCalc(TestCaseAnalyzer):
         self.assertEqual(result['halstead_min'], 30.1851)
         self.assertEqual(result['statement_nesting_max'], 2)
 
-#     def test_analyze_repository_level(self):
-#         """Test whether qmcalc returns the expected fields data for repository level"""
+class TestQMCalcRepo(TestCaseRepo):
+    # FIXME: create data/graaltest-c.zip
+    repo_name = 'BSDCoreUtils'
 
-#         qmc = QMCalc()
-#         kwargs = {
-#             'file_path': self.origin_path,
-#             'repository_level': True
-#         }
-#         results = qmc.analyze(**kwargs)
-#         result = results[next(iter(results))]
+    def test_analyze_repository_level(self):
+        """Test whether qmcalc returns the expected fields data for repository level"""
+
+        qmc = QMCalc()
+        origin_path = os.path.join(self.tmp_repo_path, self.repo_name)
+        kwargs = {
+            'file_path': origin_path,
+            'repository_level': True
+        }
+        results = qmc.analyze(**kwargs)
+        print(results)
 
 #         self.assertIn('blanks', result)
 #         self.assertTrue(type(result['blanks']), int)
@@ -106,18 +112,6 @@ class TestQMCalc(TestCaseAnalyzer):
 #         self.assertTrue(type(result['loc']), int)
 #         self.assertIn('total_files', result)
 #         self.assertTrue(type(result['total_files']), int)
-
-#     @unittest.mock.patch('subprocess.check_output')
-#     def test_analyze_error(self, check_output_mock):
-#         """Test whether an exception is thrown in case of errors"""
-
-#         check_output_mock.side_effect = subprocess.CalledProcessError(-1, "command", output=b'output')
-
-#         qmc = QMCalc()
-#         kwargs = {'file_path': os.path.join(self.tmp_data_path, ANALYZER_TEST_FILE)}
-#         with self.assertRaises(GraalError):
-#             _ = qmc.analyze(**kwargs)
-
 
 if __name__ == "__main__":
     unittest.main()
