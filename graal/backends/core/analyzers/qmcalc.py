@@ -88,27 +88,19 @@ class QMCalc(Analyzer):
         results = []
         i = 0
         for line in message.strip().split("\n"):
-            print(file_paths[i])
             value_strings = line.rstrip().split("\t")
             file_results = dict(zip(self.metrics_names, value_strings))
-            for metric in file_results:
-                if len(file_results[metric]) == 0:
-                    file_results[metric] = '0'
+            results.append(file_results)
             i = i + 1
 
         metrics_df = pd.DataFrame(data = results)
-        # metrics_df = metrics_df.convert_dtypes()
         for col in metrics_df.columns:
             if self.__is_metric_int(col):
                 metrics_df[col] = pd.to_numeric(metrics_df[col], errors='coerce').astype('Int64') 
             else:
                 metrics_df[col] = pd.to_numeric(metrics_df[col], errors='coerce')
 
-        print(metrics_df.dtypes)
-        print('exit here')
-        exit(1)
-        metrics_df.to_csv('metrics.csv', index=False)
-        nfiles = len(metrics_df)
+        # FIXME: save for debugging   metrics_df.to_csv('metrics.csv', index=False)
 
         # Groups of columns that need to be summarized in non-sum() ways
         mincols = [col for col in metrics_df.columns if col.endswith('min')]
@@ -117,11 +109,9 @@ class QMCalc(Analyzer):
         sdcols = [col for col in metrics_df.columns if col.endswith('sd')]
         mediancols = [col for col in metrics_df.columns if col.endswith('median')]
 
-        # Summarize each column based on metric type, sum() by default
-        sums = [ nfiles ]
+        # Summarize columns by metric type, sum() by default; add nfiles metric
+        sums = [ len(metrics_df) ]
         for col in metrics_df.columns:
-            print(col)
-            print(col.dtype)
             if col in mincols:
                 res = metrics_df[col].min()
             elif col in maxcols:
@@ -162,7 +152,6 @@ class QMCalc(Analyzer):
 
         try:
             qmcalc_command = ['qmcalc'] + file_paths
-            # print(qmcalc_command) #FIXME: debug print
             message = subprocess.check_output(qmcalc_command).decode("utf-8")
         except subprocess.CalledProcessError as e:
             raise GraalError(cause="QMCalc failed at %s, %s" % (file_path, e.output.decode("utf-8")))
@@ -174,6 +163,4 @@ class QMCalc(Analyzer):
         else:
             results = self.__analyze_file(message, file_path)
 
-        print(results) # FIXME: debug print
-        exit(1)
         return results

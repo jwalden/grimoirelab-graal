@@ -102,16 +102,18 @@ class TestQMCalcRepo(TestCaseRepo):
             'repository_level': True
         }
         results = qmc.analyze(**kwargs)
+        self.assertEqual(results['nfiles'], 186)
+        self.assertEqual(results['nchar'], 1170336)
+        self.assertEqual(results['nline'], 43440)
+        self.assertEqual(results['nfunction'], 4641)
+        self.assertEqual(results['line_length_min'], 0)
+        self.assertEqual(results['line_length_median'], 18)
+        self.assertEqual(results['line_length_max'], 130)
+        self.assertEqual(results['ngoto'], 161)
+        self.assertEqual(results['ncpp_conditional'], 118)
+        self.assertEqual(results['halstead_min'], 605.454502380952)
+        self.assertEqual(results['halstead_mean'], 332.97)
         print(results)
-
-#         self.assertIn('blanks', result)
-#         self.assertTrue(type(result['blanks']), int)
-#         self.assertIn('comments', result)
-#         self.assertTrue(type(result['comments']), int)
-#         self.assertIn('loc', result)
-#         self.assertTrue(type(result['loc']), int)
-#         self.assertIn('total_files', result)
-#         self.assertTrue(type(result['total_files']), int)
 
 if __name__ == "__main__":
     unittest.main()
