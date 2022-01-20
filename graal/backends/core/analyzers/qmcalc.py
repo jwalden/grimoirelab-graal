@@ -100,7 +100,7 @@ class QMCalc(Analyzer):
             else:
                 metrics_df[col] = pd.to_numeric(metrics_df[col], errors='coerce')
 
-        # FIXME: save for debugging   metrics_df.to_csv('metrics.csv', index=False)
+        # metrics_df.to_csv('metrics.csv', index=False) #FIXME: debug save
 
         # Groups of columns that need to be summarized in non-sum() ways
         mincols = [col for col in metrics_df.columns if col.endswith('min')]
@@ -110,7 +110,7 @@ class QMCalc(Analyzer):
         mediancols = [col for col in metrics_df.columns if col.endswith('median')]
 
         # Summarize columns by metric type, sum() by default; add nfiles metric
-        sums = [ len(metrics_df) ]
+        results = { 'nfiles': len(metrics_df) }
         for col in metrics_df.columns:
             if col in mincols:
                 res = metrics_df[col].min()
@@ -125,11 +125,11 @@ class QMCalc(Analyzer):
                 res = metrics_df[mean_col].std()
             else:
                 res = metrics_df[col].sum()
-            sums.append(res)
+            results[col] = res
 
-        # Build results dictionary with extra 'nfiles' metric
-        metrics_names = [ 'nfiles' ] + self.metrics_names
-        results = dict(zip(metrics_names, sums))
+        # FIXME: debug print
+        # for key, value in results.items():
+        #     print(key, ' : ', value)
 
         return results
 

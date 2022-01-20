@@ -89,7 +89,6 @@ class TestQMCalc(TestCaseAnalyzer):
         self.assertEqual(result['statement_nesting_max'], 2)
 
 class TestQMCalcRepo(TestCaseRepo):
-    # FIXME: create data/graaltest-c.zip
     repo_name = 'BSDCoreUtils'
 
     def test_analyze_repository_level(self):
@@ -105,15 +104,25 @@ class TestQMCalcRepo(TestCaseRepo):
         self.assertEqual(results['nfiles'], 186)
         self.assertEqual(results['nchar'], 1170336)
         self.assertEqual(results['nline'], 43440)
-        self.assertEqual(results['nfunction'], 4641)
+        self.assertEqual(results['nfunction'], 891)
+        self.assertEqual(results['nfunction2'], results['nfunction'])
+        self.assertEqual(results['nstatement'], 12018)
         self.assertEqual(results['line_length_min'], 0)
         self.assertEqual(results['line_length_median'], 18)
         self.assertEqual(results['line_length_max'], 130)
         self.assertEqual(results['ngoto'], 161)
+        self.assertEqual(results['nregister'], 0)
         self.assertEqual(results['ncpp_conditional'], 118)
-        self.assertEqual(results['halstead_min'], 605.454502380952)
-        self.assertEqual(results['halstead_mean'], 332.97)
-        print(results)
+        self.assertEqual(results['halstead_min'], 0.0)
+        self.assertAlmostEqual(results['halstead_mean'], 605.454, 2)
+        self.assertAlmostEqual(results['halstead_median'], 332.970, 2)
+        self.assertAlmostEqual(results['halstead_max'], 11686.900, 2)
+        self.assertAlmostEqual(results['halstead_sd'], 551.992, 2)
+        self.assertAlmostEqual(results['cyclomatic_min'], 1.0, 1)
+        self.assertAlmostEqual(results['cyclomatic_mean'], 9.459, 2)
+        self.assertAlmostEqual(results['cyclomatic_median'], 5.5, 1)
+        self.assertAlmostEqual(results['cyclomatic_max'], 108.0, 1)
+        self.assertAlmostEqual(results['cyclomatic_sd'], 10.768, 2)
 
 if __name__ == "__main__":
     unittest.main()
