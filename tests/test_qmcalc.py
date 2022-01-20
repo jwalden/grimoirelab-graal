@@ -82,10 +82,10 @@ class TestQMCalc(TestCaseAnalyzer):
         self.assertEqual(result['nunion'], 0)
         self.assertEqual(result['nunsigned'], 1)
         self.assertEqual(result['nvoid'], 2)
-        self.assertEqual(result['halstead_mean'], 124.599)
-        self.assertEqual(result['halstead_median'], 114.714)
-        self.assertEqual(result['halstead_max'], 228.898)
-        self.assertEqual(result['halstead_min'], 30.1851)
+        self.assertAlmostEqual(result['halstead_mean'], 124.599, 2)
+        self.assertAlmostEqual(result['halstead_median'], 114.714, 2)
+        self.assertAlmostEqual(result['halstead_max'], 228.898, 2)
+        self.assertAlmostEqual(result['halstead_min'], 30.185, 2)
         self.assertEqual(result['statement_nesting_max'], 2)
 
 class TestQMCalcRepo(TestCaseRepo):
