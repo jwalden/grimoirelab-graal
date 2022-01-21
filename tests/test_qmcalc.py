@@ -101,6 +101,7 @@ class TestQMCalcRepo(TestCaseRepo):
             'repository_level': True
         }
         results = qmc.analyze(**kwargs)
+
         self.assertEqual(results['nfiles'], 186)
         self.assertEqual(results['nchar'], 1170336)
         self.assertEqual(results['nline'], 43440)
