@@ -55,7 +55,7 @@ class QMCalc(Analyzer):
     def __is_metric_int(self, metric):
         metric[0] == 'n' or metric.endswith("_length_min") or metric.endswith("_length_max") or metric.endswith("_nesting_min") or metric.endswith("_nesting_max")
 
-    def __analyze_file(self, message, file_path):
+    def __analyze_file(self, message, file_path, relative_path):
         """Convert tab-separated metrics values from qmcalc into a dictionary
 
         :param message: message from standard output after execution of qmcalc
@@ -66,17 +66,21 @@ class QMCalc(Analyzer):
         value_strings = message.rstrip().split("\t")
         results = dict(zip(self.metrics_names, value_strings))
         for metric in results:
+            # FIXME: this replaces NAs (cqmetrics empty strings) with zeros
+            if results[metric] == '':
+                results[metric] = 0
+
             if self.__is_metric_int(metric):
                 results[metric] = int(results[metric])
             else:
                 results[metric] = float(results[metric])
 
-        results['path'] = file_path
-        results['ext'] = GraalRepository.extension(file_path)
+        results['file_path'] = file_path.relative_to(relative_path).as_posix()
+        results['file_extension'] = file_path.suffix
 
         return results
 
-    def __analyze_repository(self, message, file_paths):
+    def __analyze_repository(self, message, file_paths, relative_path):
         """Add information LOC, total files, blank and commented lines using CLOC for the entire repository
 
         :param message: message from standard output after execution of qmcalc
@@ -84,52 +88,15 @@ class QMCalc(Analyzer):
         :returns result: dict of the results of the analysis over a repository
         """
 
-        # Construct data frame with metrics as columns, files as rows
         results = []
         i = 0
         for line in message.strip().split("\n"):
-            value_strings = line.rstrip().split("\t")
-            file_results = dict(zip(self.metrics_names, value_strings))
+            # FIXME: debug print
+            # print("Analyzing {}".format(file_paths[i]))
+            # print("Data line is:\n{}".format(line))
+            file_results = self.__analyze_file(line, file_paths[i], relative_path)
             results.append(file_results)
             i = i + 1
-
-        metrics_df = pd.DataFrame(data = results)
-        for col in metrics_df.columns:
-            if self.__is_metric_int(col):
-                metrics_df[col] = pd.to_numeric(metrics_df[col], errors='coerce').astype('Int64') 
-            else:
-                metrics_df[col] = pd.to_numeric(metrics_df[col], errors='coerce')
-
-        # metrics_df.to_csv('metrics.csv', index=False) #FIXME: debug save
-
-        # Groups of columns that need to be summarized in non-sum() ways
-        mincols = [col for col in metrics_df.columns if col.endswith('min')]
-        maxcols = [col for col in metrics_df.columns if col.endswith('max')]
-        meancols = [col for col in metrics_df.columns if col.endswith('mean')]
-        sdcols = [col for col in metrics_df.columns if col.endswith('sd')]
-        mediancols = [col for col in metrics_df.columns if col.endswith('median')]
-
-        # Summarize columns by metric type, sum() by default; add nfiles metric
-        results = { 'nfiles': len(metrics_df) }
-        for col in metrics_df.columns:
-            if col in mincols:
-                res = metrics_df[col].min()
-            elif col in maxcols:
-                res = metrics_df[col].max()
-            elif col in meancols:
-                res = metrics_df[col].mean()
-            elif col in mediancols:
-                res = metrics_df[col].median()
-            elif col in sdcols:
-                mean_col = col.replace('sd', 'mean')
-                res = metrics_df[mean_col].std()
-            else:
-                res = metrics_df[col].sum()
-            results[col] = res
-
-        # FIXME: debug print
-        # for key, value in results.items():
-        #     print(key, ' : ', value)
 
         return results
 
@@ -142,25 +109,23 @@ class QMCalc(Analyzer):
         :returns result: dict of the results of the analysis
         """
 
-        file_path = kwargs['file_path']
         repository_level = kwargs.get('repository_level', False)
-
         if repository_level:
-            file_paths = list(Path(file_path).glob('**/*.[ch]'))
+            file_paths = list(Path(kwargs['repository_path']).glob('**/*.[ch]'))
         else:
-            file_paths = [file_path]
+            file_paths = [ kwargs['file_path'] ]
 
         try:
             qmcalc_command = ['qmcalc'] + file_paths
-            message = subprocess.check_output(qmcalc_command).decode("utf-8")
+            message = subprocess.check_output(qmcalc_command).decode('utf-8')
         except subprocess.CalledProcessError as e:
-            raise GraalError(cause="QMCalc failed at %s, %s" % (file_path, e.output.decode("utf-8")))
+            raise GraalError(cause="QMCalc failed at %s, %s" % (file_path, e.output.decode('utf-8')))
         finally:
             subprocess._cleanup()
 
         if repository_level:
-            results = self.__analyze_repository(message, file_paths)
+            results = self.__analyze_repository(message, file_paths, kwargs['repository_path'])
         else:
-            results = self.__analyze_file(message, file_path)
+            results = self.__analyze_file(message, file_paths[0], kwargs['repository_path'])
 
         return results
